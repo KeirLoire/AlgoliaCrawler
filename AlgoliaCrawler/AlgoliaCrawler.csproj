@@ -9,6 +9,7 @@
 
   <ItemGroup>
     <PackageReference Include="AbotX" Version="2.1.12" />
+    <PackageReference Include="Algolia.Search" Version="6.17.0" />
     <PackageReference Include="HtmlAgilityPack" Version="1.11.61" />
     <PackageReference Include="Microsoft.Extensions.Configuration" Version="8.0.0" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Binder" Version="8.0.1" />

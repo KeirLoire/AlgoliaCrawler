@@ -11,11 +11,13 @@ namespace AlgoliaCrawler
     public sealed class Crawler
     {
         private readonly AlgoliaConfiguration _algoliaConfiguration;
+        private readonly Uploader _uploader;
         private readonly ConcurrentDictionary<string, List<PageIndex>> _pageIndexes = new();
 
         public Crawler(AlgoliaConfiguration algoliaConfiguration)
         {
             _algoliaConfiguration = algoliaConfiguration;
+            _uploader = new Uploader();
         }
 
         public async Task StartAsync()
@@ -74,7 +76,14 @@ namespace AlgoliaCrawler
 
         private async void SiteCrawlCompleted(object sender, SiteCrawlCompletedArgs e)
         {
+            var url = e.CrawledSite.SiteToCrawl.Uri.ToString();
+
             Console.WriteLine($"Finished crawl operation for {e.CrawledSite.SiteToCrawl.Uri}");
+
+            var application = _algoliaConfiguration.Applications.Where(x => x.Url.Equals(url)).FirstOrDefault();
+            var pageIndexes = _pageIndexes[application.Id];
+
+            await _uploader.UploadAsync(application, pageIndexes);
         }
 
         private async void AllCrawlsCompleted(object sender, AllCrawlsCompletedArgs e)
