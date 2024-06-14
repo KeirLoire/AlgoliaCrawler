@@ -1,4 +1,5 @@
-﻿using AlgoliaCrawler.Model.Configs;
+﻿using AlgoliaCrawler;
+using AlgoliaCrawler.Model.Configs;
 using Microsoft.Extensions.Configuration;
 
 // Retrieve Configuration values
@@ -10,3 +11,7 @@ IConfiguration configuration = builder.Build();
 
 var algoliaConfiguration = new AlgoliaConfiguration();
 configuration.GetSection("Algolia").Bind(algoliaConfiguration);
+
+// Start the Crawler
+var crawler = new Crawler(algoliaConfiguration);
+await crawler.StartAsync();
