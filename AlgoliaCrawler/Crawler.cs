@@ -3,7 +3,9 @@ using AbotX2.Parallel;
 using AbotX2.Poco;
 using AlgoliaCrawler.Model.Configs;
 using AlgoliaCrawler.Models;
+using Microsoft.Extensions.Logging;
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Net;
 
 namespace AlgoliaCrawler
@@ -11,14 +13,18 @@ namespace AlgoliaCrawler
     public sealed class Crawler
     {
         private readonly AlgoliaConfiguration _algoliaConfiguration;
+        private readonly ILogger<Crawler> _logger;
+        private readonly Stopwatch _stopwatch;
         private readonly Uploader _uploader;
         private readonly ConcurrentDictionary<string, List<PageIndex>> _pageIndexes = new();
         private ConcurrentDictionary<string, TaskCompletionSource<bool>> _taskCompletionSources = new();
 
-        public Crawler(AlgoliaConfiguration algoliaConfiguration)
+        public Crawler(AlgoliaConfiguration algoliaConfiguration, ILogger<Crawler> logger, Uploader uploader)
         {
             _algoliaConfiguration = algoliaConfiguration;
-            _uploader = new Uploader();
+            _logger = logger;
+            _uploader = uploader;
+            _stopwatch = new Stopwatch();
         }
 
         public async Task StartAsync()
@@ -28,7 +34,10 @@ namespace AlgoliaCrawler
 
             foreach (var applicatioConfiguration in _algoliaConfiguration.Applications)
             {
-                if (!applicatioConfiguration.Enabled)
+                if (!applicatioConfiguration.Enabled 
+                    || applicatioConfiguration.Id == null  
+                    || applicatioConfiguration.Index == null 
+                    || applicatioConfiguration.Url == null)
                     continue;
 
                 sitesToCrawl.Add(new SiteToCrawl
@@ -69,33 +78,39 @@ namespace AlgoliaCrawler
             await Task.WhenAll(_taskCompletionSources.Values.Select(x => x.Task));
         }
 
-        private async void CrawlerInstanceCreated(object sender, CrawlerInstanceCreatedArgs e)
+        private void CrawlerInstanceCreated(object sender, CrawlerInstanceCreatedArgs e)
         {
             e.Crawler.PageCrawlCompleted += PageCrawlCompleted;
 
-            Console.WriteLine($"Starting crawl operation for {e.SiteToCrawl.Uri}");
+            _logger.LogInformation($"Starting crawl operation for {e.SiteToCrawl.Uri}");
         }
 
         private async void SiteCrawlCompleted(object sender, SiteCrawlCompletedArgs e)
         {
             var url = e.CrawledSite.SiteToCrawl.Uri.ToString();
-
-            Console.WriteLine($"Finished crawl operation for {e.CrawledSite.SiteToCrawl.Uri}");
-
             var applicatioConfiguration = _algoliaConfiguration.Applications.Where(x => x.Url.Equals(url)).FirstOrDefault();
+            var pageCrawlCount = e.CrawledSite.CrawlResult.CrawlContext.CrawledCount;
             var pageIndexes = _pageIndexes[applicatioConfiguration.Id];
+            var totalHours = (int)e.CrawledSite.CrawlResult.Elapsed.TotalHours;
+            var totalMinutes = e.CrawledSite.CrawlResult.Elapsed.Minutes;
+
+            _logger.LogInformation($"Finished crawl operation for {url} with {pageIndexes.Count} indexed pages and {pageCrawlCount} crawled pages in {(totalHours > 0 ? totalHours + "hours and " : "")}{totalMinutes} minutes");
 
             await _uploader.UploadAsync(applicatioConfiguration, pageIndexes);
 
             _taskCompletionSources[applicatioConfiguration.Id].SetResult(true);
         }
 
-        private async void AllCrawlsCompleted(object sender, AllCrawlsCompletedArgs e)
+        private void AllCrawlsCompleted(object sender, AllCrawlsCompletedArgs e)
         {
-            Console.WriteLine("All crawl operations completed");
+            _stopwatch.Stop();
+            var totalHours = (int)_stopwatch.Elapsed.TotalHours;
+            var totalMinutes = _stopwatch.Elapsed.Minutes;
+
+            _logger.LogInformation($"All crawl operations completed in {(totalHours > 0 ? totalHours + "hours and " : "")}{totalMinutes} minutes");
         }
 
-        private async void PageCrawlCompleted(object sender, PageCrawlCompletedArgs e)
+        private void PageCrawlCompleted(object sender, PageCrawlCompletedArgs e)
         {
             var pageIndex = new PageIndex
             {
