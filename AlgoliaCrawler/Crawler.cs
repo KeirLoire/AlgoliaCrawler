@@ -13,6 +13,7 @@ namespace AlgoliaCrawler
         private readonly AlgoliaConfiguration _algoliaConfiguration;
         private readonly Uploader _uploader;
         private readonly ConcurrentDictionary<string, List<PageIndex>> _pageIndexes = new();
+        private ConcurrentDictionary<string, TaskCompletionSource<bool>> _taskCompletionSources = new();
 
         public Crawler(AlgoliaConfiguration algoliaConfiguration)
         {
@@ -25,17 +26,17 @@ namespace AlgoliaCrawler
             // Add sites to crawl
             var sitesToCrawl = new List<SiteToCrawl>();
 
-            foreach (var application in _algoliaConfiguration.Applications)
+            foreach (var applicatioConfiguration in _algoliaConfiguration.Applications)
             {
-                if (!application.Enabled)
+                if (!applicatioConfiguration.Enabled)
                     continue;
 
-                var siteToCrawl = new SiteToCrawl
+                sitesToCrawl.Add(new SiteToCrawl
                 {
-                    Uri = new Uri(application.Url)
-                };
+                    Uri = new Uri(applicatioConfiguration.Url)
+                });
 
-                sitesToCrawl.Add(siteToCrawl);
+                _taskCompletionSources.TryAdd(applicatioConfiguration.Id, new TaskCompletionSource<bool>());
             }
 
             var siteToCrawlProvider = new SiteToCrawlProvider();
@@ -65,6 +66,7 @@ namespace AlgoliaCrawler
             crawler.AllCrawlsCompleted += AllCrawlsCompleted;
             
             await crawler.StartAsync();
+            await Task.WhenAll(_taskCompletionSources.Values.Select(x => x.Task));
         }
 
         private async void CrawlerInstanceCreated(object sender, CrawlerInstanceCreatedArgs e)
@@ -80,10 +82,12 @@ namespace AlgoliaCrawler
 
             Console.WriteLine($"Finished crawl operation for {e.CrawledSite.SiteToCrawl.Uri}");
 
-            var application = _algoliaConfiguration.Applications.Where(x => x.Url.Equals(url)).FirstOrDefault();
-            var pageIndexes = _pageIndexes[application.Id];
+            var applicatioConfiguration = _algoliaConfiguration.Applications.Where(x => x.Url.Equals(url)).FirstOrDefault();
+            var pageIndexes = _pageIndexes[applicatioConfiguration.Id];
 
-            await _uploader.UploadAsync(application, pageIndexes);
+            await _uploader.UploadAsync(applicatioConfiguration, pageIndexes);
+
+            _taskCompletionSources[applicatioConfiguration.Id].SetResult(true);
         }
 
         private async void AllCrawlsCompleted(object sender, AllCrawlsCompletedArgs e)
@@ -113,8 +117,8 @@ namespace AlgoliaCrawler
             else
             {
                 var rootUrl = e.CrawlContext.OriginalRootUri.ToString();
-                var application = _algoliaConfiguration.Applications.Where(x => x.Url.Equals(rootUrl)).FirstOrDefault();
-                var pageIndexes = _pageIndexes.GetOrAdd(application.Id, new List<PageIndex>());
+                var applicatioConfiguration = _algoliaConfiguration.Applications.Where(x => x.Url.Equals(rootUrl)).FirstOrDefault();
+                var pageIndexes = _pageIndexes.GetOrAdd(applicatioConfiguration.Id, new List<PageIndex>());
 
                 pageIndexes.Add(pageIndex);
             }
