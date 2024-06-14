@@ -3,6 +3,7 @@ using AbotX2.Parallel;
 using AbotX2.Poco;
 using AlgoliaCrawler.Model.Configs;
 using AlgoliaCrawler.Models;
+using System.Collections.Concurrent;
 using System.Net;
 
 namespace AlgoliaCrawler
@@ -10,7 +11,7 @@ namespace AlgoliaCrawler
     public sealed class Crawler
     {
         private readonly AlgoliaConfiguration _algoliaConfiguration;
-        private readonly List<PageIndex> _pageIndexes = new();
+        private readonly ConcurrentDictionary<string, List<PageIndex>> _pageIndexes = new();
 
         public Crawler(AlgoliaConfiguration algoliaConfiguration)
         {
@@ -101,7 +102,13 @@ namespace AlgoliaCrawler
                     Console.WriteLine($"[TIMED OUT] {pageIndex.Url}");
             }
             else
-                _pageIndexes.Add(pageIndex);
+            {
+                var rootUrl = e.CrawlContext.OriginalRootUri.ToString();
+                var application = _algoliaConfiguration.Applications.Where(x => x.Url.Equals(rootUrl)).FirstOrDefault();
+                var pageIndexes = _pageIndexes.GetOrAdd(application.Id, new List<PageIndex>());
+
+                pageIndexes.Add(pageIndex);
+            }
         }
     }
 }
