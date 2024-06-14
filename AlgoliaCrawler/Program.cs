@@ -31,6 +31,7 @@ try
             loggingBuilder.AddSerilog();
         })
         .AddTransient<Crawler>()
+        .AddTransient<SitemapParser>()
         .AddTransient<Uploader>()
         .BuildServiceProvider();
 

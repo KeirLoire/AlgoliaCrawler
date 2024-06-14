@@ -1,4 +1,5 @@
 ﻿using Abot2.Crawler;
+using Abot2.Poco;
 using AbotX2.Parallel;
 using AbotX2.Poco;
 using AlgoliaCrawler.Model.Configs;
@@ -14,17 +15,19 @@ namespace AlgoliaCrawler
     {
         private readonly AlgoliaConfiguration _algoliaConfiguration;
         private readonly ILogger<Crawler> _logger;
+        private readonly SitemapParser _sitemapParser;
         private readonly Stopwatch _stopwatch;
         private readonly Uploader _uploader;
         private readonly ConcurrentDictionary<string, List<PageIndex>> _pageIndexes = new();
         private ConcurrentDictionary<string, TaskCompletionSource<bool>> _taskCompletionSources = new();
 
-        public Crawler(AlgoliaConfiguration algoliaConfiguration, ILogger<Crawler> logger, Uploader uploader)
+        public Crawler(AlgoliaConfiguration algoliaConfiguration, ILogger<Crawler> logger, SitemapParser sitemapParser, Uploader uploader)
         {
             _algoliaConfiguration = algoliaConfiguration;
             _logger = logger;
-            _uploader = uploader;
+            _sitemapParser = sitemapParser;
             _stopwatch = new Stopwatch();
+            _uploader = uploader;
         }
 
         public async Task StartAsync()
@@ -110,13 +113,31 @@ namespace AlgoliaCrawler
             _logger.LogInformation($"All crawl operations completed in {(totalHours > 0 ? totalHours + "hours and " : "")}{totalMinutes} minutes");
         }
 
-        private void PageCrawlCompleted(object sender, PageCrawlCompletedArgs e)
+        private async void PageCrawlCompleted(object sender, PageCrawlCompletedArgs e)
         {
             var pageIndex = new PageIndex
             {
                 Title = WebUtility.HtmlDecode(e.CrawledPage.Content.GetContentByXpath("//title")),
                 Url = e.CrawledPage.Uri.AbsoluteUri
             };
+
+            if (e.CrawledPage.IsRoot)
+            {
+                var sitemapUrls = await _sitemapParser.GetSitemapUrlsAsync(pageIndex.Url);
+
+                foreach (var url in sitemapUrls)
+                {
+                    if (e.CrawledPage.ParsedLinks.Any(x => x.HrefValue == new Uri(url)))
+                        continue;
+
+                    e.CrawledPage.ParsedLinks.ToList().Add(new HyperLink
+                    {
+                        HrefValue = new Uri(url),
+                        RawHrefText = url,
+                        RawHrefValue = url
+                    });
+                }
+            }
 
             if (e.CrawledPage.HttpRequestException != null)
             {
