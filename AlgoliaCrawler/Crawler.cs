@@ -91,17 +91,17 @@ namespace AlgoliaCrawler
         private async void SiteCrawlCompleted(object sender, SiteCrawlCompletedArgs e)
         {
             var url = e.CrawledSite.SiteToCrawl.Uri.ToString();
-            var applicatioConfiguration = _algoliaConfiguration.Applications.Where(x => x.Url.Equals(url)).FirstOrDefault();
+            var applicationConfiguration = _algoliaConfiguration.Applications.Where(x => new Uri(x.Url).Equals(new Uri(url))).FirstOrDefault();
             var pageCrawlCount = e.CrawledSite.CrawlResult.CrawlContext.CrawledCount;
-            var pageIndexes = _pageIndexes[applicatioConfiguration.Id];
+            var pageIndexes = _pageIndexes[applicationConfiguration.Id];
             var totalHours = (int)e.CrawledSite.CrawlResult.Elapsed.TotalHours;
             var totalMinutes = e.CrawledSite.CrawlResult.Elapsed.Minutes;
 
             _logger.LogInformation($"Finished crawl operation for {url} with {pageIndexes.Count} indexed pages and {pageCrawlCount} crawled pages in {(totalHours > 0 ? totalHours + "hours and " : "")}{totalMinutes} minutes");
 
-            await _uploader.UploadAsync(applicatioConfiguration, pageIndexes);
+            await _uploader.UploadAsync(applicationConfiguration, pageIndexes);
 
-            _taskCompletionSources[applicatioConfiguration.Id].SetResult(true);
+            _taskCompletionSources[applicationConfiguration.Id].SetResult(true);
         }
 
         private void AllCrawlsCompleted(object sender, AllCrawlsCompletedArgs e)
@@ -153,7 +153,7 @@ namespace AlgoliaCrawler
             else
             {
                 var rootUrl = e.CrawlContext.OriginalRootUri.ToString();
-                var applicationConfiguration = _algoliaConfiguration.Applications.Where(x => x.Url.Equals(rootUrl)).FirstOrDefault();
+                var applicationConfiguration = _algoliaConfiguration.Applications.Where(x => new Uri (x.Url).Equals(new Uri(rootUrl))).FirstOrDefault();
                 var pageIndexes = _pageIndexes.GetOrAdd(applicationConfiguration.Id, new List<PageIndex>());
 
                 pageIndexes.Add(pageIndex);
