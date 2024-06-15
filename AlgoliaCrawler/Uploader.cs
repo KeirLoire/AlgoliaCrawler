@@ -20,7 +20,7 @@ namespace AlgoliaCrawler
             var index = client.InitIndex(applicationConfiguration.Index);
 
             await index.ClearObjectsAsync();
-            await index.SaveObjectAsync(pageIndexes);
+            await index.SaveObjectsAsync(pageIndexes);
 
             _logger.LogInformation($"Uploaded {pageIndexes.Count()} pages for {applicationConfiguration.Url}");
         }
