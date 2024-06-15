@@ -11,28 +11,32 @@ namespace AlgoliaCrawler
 
             using (var client = new HttpClient())
             {
-                var content = await client.GetStringAsync(url);
-                var doc = XDocument.Parse(content);
-                var ns = (XNamespace)"http://www.sitemaps.org/schemas/sitemap/0.9";
-
-                foreach (var element in doc.Descendants())
+                var content = await client.GetStringIgnoreExceptionAsync(url.ToString());
+                
+                if (content != null)
                 {
-                    if (element.Name == ns + "sitemap")
-                    {
-                        var locElement = element.Element(ns + "loc");
+                    var doc = XDocument.Parse(content);
+                    var ns = (XNamespace)"http://www.sitemaps.org/schemas/sitemap/0.9";
 
-                        if (locElement != null)
+                    foreach (var element in doc.Descendants())
+                    {
+                        if (element.Name == ns + "sitemap")
                         {
-                            var nestedSitemapUrls = await GetSitemapUrlsAsync(locElement.Value);
-                            sitemapUrls.AddRange(nestedSitemapUrls);
-                        }
-                    }
-                    else if (element.Name == ns + "url")
-                    {
-                        var locElement = element.Element(ns + "loc");
+                            var locElement = element.Element(ns + "loc");
 
-                        if (locElement != null)
-                            sitemapUrls.Add(locElement.Value);
+                            if (locElement != null)
+                            {
+                                var nestedSitemapUrls = await GetSitemapUrlsAsync(locElement.Value);
+                                sitemapUrls.AddRange(nestedSitemapUrls);
+                            }
+                        }
+                        else if (element.Name == ns + "url")
+                        {
+                            var locElement = element.Element(ns + "loc");
+
+                            if (locElement != null)
+                                sitemapUrls.Add(locElement.Value);
+                        }
                     }
                 }
             }

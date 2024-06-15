@@ -153,8 +153,8 @@ namespace AlgoliaCrawler
             else
             {
                 var rootUrl = e.CrawlContext.OriginalRootUri.ToString();
-                var applicatioConfiguration = _algoliaConfiguration.Applications.Where(x => x.Url.Equals(rootUrl)).FirstOrDefault();
-                var pageIndexes = _pageIndexes.GetOrAdd(applicatioConfiguration.Id, new List<PageIndex>());
+                var applicationConfiguration = _algoliaConfiguration.Applications.Where(x => x.Url.Equals(rootUrl)).FirstOrDefault();
+                var pageIndexes = _pageIndexes.GetOrAdd(applicationConfiguration.Id, new List<PageIndex>());
 
                 pageIndexes.Add(pageIndex);
             }
