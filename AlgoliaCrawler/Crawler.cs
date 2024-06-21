@@ -5,6 +5,7 @@ using AbotX2.Poco;
 using AlgoliaCrawler.Model.Configs;
 using AlgoliaCrawler.Models;
 using Microsoft.Extensions.Logging;
+using System;
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Net;
@@ -62,8 +63,9 @@ namespace AlgoliaCrawler
                 MinCrawlDelayPerDomainMilliSeconds = _algoliaConfiguration.MinCrawlDelayPerDomainMilliSeconds,
                 MaxPagesToCrawl = _algoliaConfiguration.MaxPagesToCrawl,
                 MaxConcurrentSiteCrawls = _algoliaConfiguration.MaxConcurrentSiteCrawls,
-                MaxRetryCount = _algoliaConfiguration.MaxRetryCount
-            };
+                MaxRetryCount = _algoliaConfiguration.MaxRetryCount,
+                IsExternalPageLinksCrawlingEnabled = true
+        };
 
             var crawler = new ParallelCrawlerEngine(crawlConfigurationX,
                 new ParallelImplementationOverride(crawlConfigurationX,
@@ -130,12 +132,10 @@ namespace AlgoliaCrawler
                     if (e.CrawledPage.ParsedLinks.Any(x => x.HrefValue == new Uri(url)))
                         continue;
 
-                    e.CrawledPage.ParsedLinks.ToList().Add(new HyperLink
-                    {
-                        HrefValue = new Uri(url),
-                        RawHrefText = url,
-                        RawHrefValue = url
-                    });
+                    var pageToCrawl = new PageToCrawl(new Uri(url));
+                    pageToCrawl.ParentUri = new Uri(pageIndex.Url);
+
+                    e.CrawlContext.Scheduler.Add(pageToCrawl);
                 }
             }
 
