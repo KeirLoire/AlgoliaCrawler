@@ -28,5 +28,4 @@ jobs:
         with:
           name: Binary
           path: |
-            AlgoliaCrawler/bin/Release/*.exe
-            AlgoliaCrawler/bin/Release/*.json
+            AlgoliaCrawler/bin/Release
